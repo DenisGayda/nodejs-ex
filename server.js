@@ -4,6 +4,31 @@ var express = require('express'),
     app     = express(),
     eps     = require('ejs'),
     morgan  = require('morgan');
+
+var bodyParser = require("body-parser");
+var mongoClient = require("mongodb").MongoClient;
+var objectId = require("mongodb").ObjectID;
+
+var mongoose = require("mongoose");
+var Schema = mongoose.Schema;
+mongoose.Promise = global.Promise;
+var userScheme = new Schema({
+    name: {
+        type: String,
+        required: true,
+        minlength:3,
+        maxlength:20
+    },
+    age: {
+        type: Number,
+        required: true,
+        min: 1,
+        max:100
+    }
+}, { versionKey: false });
+
+var User = mongoose.model("User", userScheme);
+var jsonParser = bodyParser.json();
     
 Object.assign=require('object-assign')
 
@@ -89,6 +114,86 @@ app.get('/pagecount', function (req, res) {
   } else {
     res.send('{ pageCount: -1 }');
   }
+});
+
+app.get("/api/users", function(req, res){
+  
+  mongoose.connect("mongodb://localhost:27017/usersdb");
+  User.find({})
+    .then(doc => {
+        res.send(doc)
+        mongoose.disconnect();  // отключение от базы данных
+    })
+    .catch(err => {
+        res.status(500).send();
+        mongoose.disconnect();
+    });
+});
+
+
+app.get("/api/users/:id", function(req, res){
+    var id = new objectId(req.params.id);
+
+    mongoose.connect("mongodb://localhost:27017/usersdb");
+    User.findById(id)
+      .then(doc => {
+        res.send(doc)
+        mongoose.disconnect();  // отключение от базы данных
+    })
+    .catch(err => {
+        res.status(500).send();
+        mongoose.disconnect();
+    });
+});
+ 
+app.post("/api/users", jsonParser, function (req, res) {
+    if(!req.body) return res.sendStatus(400); 
+    var userName = req.body.name;
+    var userAge = req.body.age;
+    var user =  new User({name: userName, age: userAge});
+
+    mongoose.connect("mongodb://localhost:27017/usersdb");
+    user.save()
+    .then(function(doc){
+        res.send(doc)
+        mongoose.disconnect();  // отключение от базы данных
+    })
+    .catch(function (err){
+        res.status(500).send();
+        mongoose.disconnect();
+    });
+});
+  
+app.delete("/api/users/:id", function(req, res){
+    mongoose.connect("mongodb://localhost:27017/usersdb");
+    var id = new objectId(req.params.id);
+    User.findByIdAndRemove(id)
+      .then(doc => {
+        res.send(doc)
+        mongoose.disconnect();  // отключение от базы данных
+    })
+    .catch(err => {
+        res.status(500).send();
+        mongoose.disconnect();
+    });
+});
+ 
+
+app.put("/api/users", jsonParser, function(req, res){
+    mongoose.connect("mongodb://localhost:27017/usersdb");
+    if(!req.body) return res.sendStatus(400);
+    var id = new objectId(req.body.id);
+    var userName = req.body.name;
+    var userAge = req.body.age;
+    User.findByIdAndUpdate(id, {name: userName, age: userAge}, {new: true})
+      .then(doc => {
+        res.send(doc)
+        mongoose.disconnect();  // отключение от базы данных
+    })
+    .catch(err => {
+        res.status(500).send();
+        mongoose.disconnect();
+    });
 });
 
 // error handling
